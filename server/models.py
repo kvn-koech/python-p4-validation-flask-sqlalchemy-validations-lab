@@ -32,17 +32,28 @@ class Author(db.Model, SerializerMixin):
             raise ValueError("Author must have a name")
         
         # Check if name already exists (case-insensitive)
-        existing_author = Author.query.filter(Author.name.ilike(name)).first()
-        if existing_author and existing_author.id != self.id:
-            raise ValueError("Author name must be unique")
+        # Only check for duplicates if this is a new author (id is None) 
+        # or if we're changing the name of an existing author
+        if self.id is None:
+            # New author - check if any author has this name
+            existing_author = Author.query.filter(Author.name.ilike(name)).first()
+            if existing_author:
+                raise ValueError("Author name must be unique")
+        else:
+            # Existing author - check if any OTHER author has this name
+            existing_author = Author.query.filter(Author.name.ilike(name), Author.id != self.id).first()
+            if existing_author:
+                raise ValueError("Author name must be unique")
         return name
 
     @validates('phone_number')
     def validate_phone_number(self, key, phone_number):
-        if phone_number and len(phone_number) != 10:
-            raise ValueError("Author phone number must be exactly 10 digits")
-        if phone_number and not phone_number.isdigit():
-            raise ValueError("Author phone number must contain only digits")
+        # Phone number must be exactly 10 digits if provided
+        if phone_number is not None:
+            if len(phone_number) != 10:
+                raise ValueError("Author phone numbers are exactly ten digits.")
+            if not phone_number.isdigit():
+                raise ValueError("Author phone number must contain only digits")
         return phone_number
 
     def __repr__(self):
@@ -61,27 +72,27 @@ class Post(db.Model, SerializerMixin):
     @validates('content')
     def validate_content(self, key, content):
         if content and len(content) < 250:
-            raise ValueError("Post content must be at least 250 characters long")
+            raise ValueError("Post content is at least 250 characters long.")
         return content
 
     @validates('summary')
     def validate_summary(self, key, summary):
         if summary and len(summary) > 250:
-            raise ValueError("Post summary must be a maximum of 250 characters")
+            raise ValueError("Post summary is a maximum of 250 characters.")
         return summary
 
     @validates('category')
     def validate_category(self, key, category):
         valid_categories = ['Fiction', 'Non-Fiction']
         if category not in valid_categories:
-            raise ValueError("Post category must be either Fiction or Non-Fiction")
+            raise ValueError("Post category is either Fiction or Non-Fiction.")
         return category
 
     @validates('title')
     def validate_title(self, key, title):
         clickbait_phrases = ["Won't Believe", "Secret", "Top", "Guess"]
         if not any(phrase in title for phrase in clickbait_phrases):
-            raise ValueError("Post title must contain one of: 'Won't Believe', 'Secret', 'Top', 'Guess'")
+            raise ValueError("Post title is sufficiently clickbait-y.")
         return title
 
     def __repr__(self):
